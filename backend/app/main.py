@@ -22,6 +22,12 @@ app.include_router(activities.router, prefix="/activities", tags=["Activities"])
 app.include_router(academic.router, prefix="/academic", tags=["Academic"])
 app.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 
+from fastapi.staticfiles import StaticFiles
+import os
+
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 @app.get("/")
 
 def root():

@@ -58,3 +58,25 @@ def get_students(db: Session = Depends(get_db), current_user: User = Depends(rol
     students = query.all()
 
     return [{"id": s.id, "full_name": s.full_name, "email": s.email, "department": s.department} for s in students]
+
+@router.post("/student/{student_id}/record", response_model=AcademicRecordSchema)
+def add_student_academic_record(
+    student_id: int, 
+    record: AcademicRecordSchema, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(role_required("faculty"))
+):
+    # Verify student exists
+    student = db.query(User).filter(User.id == student_id, User.role == "student").first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+        
+    # Optional: Verify faculty department matches student department (for security)
+    if current_user.department and current_user.department != student.department:
+        raise HTTPException(status_code=403, detail="Faculty can only update records for their department")
+
+    db_record = AcademicRecord(**record.dict(), user_id=student_id)
+    db.add(db_record)
+    db.commit()
+    db.refresh(db_record)
+    return db_record

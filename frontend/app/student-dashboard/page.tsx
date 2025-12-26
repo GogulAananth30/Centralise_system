@@ -13,7 +13,10 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  LogOut
+  LogOut,
+  Plus,
+  Upload,
+  X
 } from "lucide-react";
 
 // Interfaces
@@ -46,6 +49,16 @@ export default function StudentDashboard() {
   const [academicRecords, setAcademicRecords] = useState<AcademicRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newActivity, setNewActivity] = useState({
+    title: "",
+    description: "",
+    category: "Technical",
+    duration: "1 week",
+    skills_gained: "",
+    proof_url: ""
+  });
+  const [uploading, setUploading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -111,6 +124,74 @@ export default function StudentDashboard() {
       case "approved": return "text-green-600 bg-green-100 border-green-200";
       case "rejected": return "text-red-600 bg-red-100 border-red-200";
       default: return "text-yellow-600 bg-yellow-100 border-yellow-200";
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+
+    const file = e.target.files[0];
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setUploading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const API_BASE = "http://127.0.0.1:8000";
+
+      const res = await axios.post(`${API_BASE}/activities/upload-proof`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data"
+        }
+      });
+
+      setNewActivity({ ...newActivity, proof_url: res.data.url });
+      alert("Certificate uploaded successfully!");
+    } catch (error) {
+      console.error("Upload failed", error);
+      alert("Failed to upload certificate");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSubmitActivity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newActivity.title || !newActivity.description) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const API_BASE = "http://127.0.0.1:8000";
+
+      // Convert comma-separated skills to array
+      const payload = {
+        ...newActivity,
+        skills_gained: newActivity.skills_gained.split(',').map(s => s.trim()).filter(s => s.length > 0)
+      };
+
+      const res = await axios.post(`${API_BASE}/activities/`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setActivities([res.data, ...activities]);
+      setIsModalOpen(false);
+      setNewActivity({
+        title: "",
+        description: "",
+        category: "Technical",
+        duration: "1 week",
+        skills_gained: "",
+        proof_url: ""
+      });
+      alert("Activity submitted for approval!");
+
+    } catch (error) {
+      console.error("Submission failed", error);
+      alert("Failed to submit activity");
     }
   };
 
@@ -290,9 +371,17 @@ export default function StudentDashboard() {
             <h3 className="text-lg font-bold flex items-center gap-2">
               <Activity className="w-5 h-5 text-green-500" /> Activity Timeline
             </h3>
-            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-500">
-              Showing all
-            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition"
+              >
+                <Plus className="w-4 h-4" /> Add Activity
+              </button>
+              <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-500">
+                Showing all
+              </span>
+            </div>
           </div>
 
           {activities.length > 0 ? (
@@ -300,7 +389,7 @@ export default function StudentDashboard() {
               {activities.map((activity) => (
                 <div key={activity.id} className="flex gap-4 p-4 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                   <div className={`mt-1 flex-shrink-0 ${activity.status === 'approved' ? 'text-green-500' :
-                      activity.status === 'rejected' ? 'text-red-500' : 'text-yellow-500'
+                    activity.status === 'rejected' ? 'text-red-500' : 'text-yellow-500'
                     }`}>
                     {getStatusIcon(activity.status)}
                   </div>
@@ -328,6 +417,113 @@ export default function StudentDashboard() {
           )}
         </section>
       </main>
+
+      {/* Add Activity Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl border border-gray-100 dark:border-gray-700">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+              <h3 className="text-xl font-bold">Add New Activity</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitActivity} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Activity Title *</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                  value={newActivity.title}
+                  onChange={e => setNewActivity({ ...newActivity, title: e.target.value })}
+                  placeholder="e.g. Hackathon Winner"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Description *</label>
+                <textarea
+                  required
+                  className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                  rows={3}
+                  value={newActivity.description}
+                  onChange={e => setNewActivity({ ...newActivity, description: e.target.value })}
+                  placeholder="Describe your achievement..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Category</label>
+                  <select
+                    className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                    value={newActivity.category}
+                    onChange={e => setNewActivity({ ...newActivity, category: e.target.value })}
+                  >
+                    <option>Technical</option>
+                    <option>Cultural</option>
+                    <option>Sports</option>
+                    <option>Social Service</option>
+                    <option>Research</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Duration</label>
+                  <input
+                    type="text"
+                    className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                    value={newActivity.duration}
+                    onChange={e => setNewActivity({ ...newActivity, duration: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Skills Gained (comma separated)</label>
+                <input
+                  type="text"
+                  className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                  value={newActivity.skills_gained}
+                  onChange={e => setNewActivity({ ...newActivity, skills_gained: e.target.value })}
+                  placeholder="e.g. Leadership, Python, Teamwork"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Upload Certificate</label>
+                <div className="flex items-center gap-4">
+                  <label className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm">{uploading ? "Uploading..." : "Choose File"}</span>
+                    <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,.pdf" />
+                  </label>
+                  {newActivity.proof_url && <span className="text-xs text-green-500">File attached ✓</span>}
+                </div>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  Submit Activity
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

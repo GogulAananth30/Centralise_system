@@ -11,7 +11,10 @@ import {
   UserCheck,
   XCircle,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  ExternalLink,
+  Edit,
+  X
 } from "lucide-react";
 
 interface Activity {
@@ -21,6 +24,7 @@ interface Activity {
   status: string;
   user_id: number;
   created_at?: string;
+  proof_url?: string;
 }
 
 interface Student {
@@ -40,6 +44,17 @@ export default function FacultyDashboard() {
   const [pendingActivities, setPendingActivities] = useState<Activity[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Academic Update State
+  const [isAcademicModalOpen, setIsAcademicModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [academicForm, setAcademicForm] = useState({
+    semester: "",
+    gpa: "",
+    credits_earned: "",
+    total_credits: ""
+  });
+
   const router = useRouter();
 
   useEffect(() => {
@@ -107,6 +122,40 @@ export default function FacultyDashboard() {
     } catch (error) {
       console.error(`Failed to ${action} activity`, error);
       alert(`Failed to ${action} activity. Please try again.`);
+    }
+  };
+
+  const openAcademicModal = (student: Student) => {
+    setSelectedStudent(student);
+    setAcademicForm({ semester: "", gpa: "", credits_earned: "", total_credits: "" });
+    setIsAcademicModalOpen(true);
+  };
+
+  const handleSaveAcademicRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudent) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const API_BASE = "http://127.0.0.1:8000";
+
+      const payload = {
+        semester: academicForm.semester,
+        gpa: parseFloat(academicForm.gpa),
+        credits_earned: parseInt(academicForm.credits_earned),
+        total_credits: parseInt(academicForm.total_credits)
+      };
+
+      await axios.post(`${API_BASE}/academic/student/${selectedStudent.id}/record`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      alert(`Academic record updated for ${selectedStudent.full_name}`);
+      setIsAcademicModalOpen(false);
+
+    } catch (error) {
+      console.error("Failed to update record", error);
+      alert("Failed to update academic record");
     }
   };
 
@@ -204,6 +253,16 @@ export default function FacultyDashboard() {
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                           {activity.description}
                         </p>
+                        {activity.proof_url && (
+                          <a
+                            href={`http://127.0.0.1:8000/${activity.proof_url}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-2"
+                          >
+                            <ExternalLink className="w-3 h-3" /> View Certificate
+                          </a>
+                        )}
                       </div>
                       <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
                         Pending Review
@@ -257,6 +316,13 @@ export default function FacultyDashboard() {
                       </p>
                       <p className="text-xs text-gray-500 truncate">{student.email}</p>
                     </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openAcademicModal(student); }}
+                      className="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-full text-indigo-600 transition"
+                      title="Update Academics"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
                   </div>
                 ))
               ) : (
@@ -273,6 +339,89 @@ export default function FacultyDashboard() {
         </div>
 
       </main>
+
+      {/* Academic Update Modal */}
+      {isAcademicModalOpen && selectedStudent && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-700">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+              <div>
+                <h3 className="text-xl font-bold">Update Academics</h3>
+                <p className="text-sm text-gray-500">for {selectedStudent.full_name}</p>
+              </div>
+              <button onClick={() => setIsAcademicModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAcademicRecord} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Semester</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                  value={academicForm.semester}
+                  onChange={e => setAcademicForm({ ...academicForm, semester: e.target.value })}
+                  placeholder="e.g. Sem 5"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">GPA</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                  value={academicForm.gpa}
+                  onChange={e => setAcademicForm({ ...academicForm, gpa: e.target.value })}
+                  placeholder="e.g. 8.5"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Credits Earned</label>
+                  <input
+                    type="number"
+                    required
+                    className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                    value={academicForm.credits_earned}
+                    onChange={e => setAcademicForm({ ...academicForm, credits_earned: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Total Credits</label>
+                  <input
+                    type="number"
+                    required
+                    className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                    value={academicForm.total_credits}
+                    onChange={e => setAcademicForm({ ...academicForm, total_credits: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAcademicModalOpen(false)}
+                  className="px-4 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                >
+                  Save Record
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

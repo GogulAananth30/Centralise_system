@@ -76,7 +76,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const generateReport = (type: "NAAC" | "NIRF") => {
+  const generateReport = (type: "NIRF") => {
     // Simulator for report generation
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(analytics, null, 2));
     const downloadAnchorNode = document.createElement('a');
@@ -151,17 +151,7 @@ export default function AdminDashboard() {
             <h3 className="text-3xl font-bold">{analytics?.total_activities || 0}</h3>
           </div>
 
-          {/* Metric 3: Accreditation Score (Mock) */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="flex justify-between items-start mb-4">
-              <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg text-yellow-600">
-                <Award className="w-6 h-6" />
-              </div>
-              <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Projected</span>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">NAAC Score</p>
-            <h3 className="text-3xl font-bold">A++</h3>
-          </div>
+
 
           {/* Metric 4 */}
           <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
@@ -219,19 +209,11 @@ export default function AdminDashboard() {
               <FileText className="w-5 h-5 text-green-500" /> Accreditation Reports
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              Generate standard compliance reports compatible with NAAC, NIRF, and NBA formats.
+              Generate standard compliance reports compatible with NIRF and NBA formats.
             </p>
 
             <div className="space-y-3">
-              <button
-                onClick={() => generateReport("NAAC")}
-                className="w-full py-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-xl font-medium transition flex items-center justify-between px-4 group"
-              >
-                <span className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
-                  <ShieldCheck className="w-5 h-5 text-blue-500" /> NAAC Report
-                </span>
-                <Download className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </button>
+
 
               <button
                 onClick={() => generateReport("NIRF")}
