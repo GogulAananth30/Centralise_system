@@ -16,7 +16,8 @@ import {
   LogOut,
   Plus,
   Upload,
-  X
+  X,
+  Edit
 } from "lucide-react";
 
 // Interfaces
@@ -34,6 +35,7 @@ interface ActivityItem {
   description: string;
   status: "pending" | "approved" | "rejected";
   created_at?: string;
+  skills_gained?: string[];
 }
 
 interface AcademicRecord {
@@ -59,6 +61,12 @@ export default function StudentDashboard() {
     proof_url: ""
   });
   const [uploading, setUploading] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [editUser, setEditUser] = useState({
+    full_name: "",
+    department: "",
+    year: ""
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -111,6 +119,34 @@ export default function StudentDashboard() {
       // alert("Error loading dashboard data. Please check connection.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem("token");
+      const API_BASE = "http://127.0.0.1:8000";
+      const res = await axios.put(`${API_BASE}/auth/profile`, editUser, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUser(res.data);
+      setIsProfileModalOpen(false);
+      alert("Profile updated successfully!");
+    } catch (error) {
+      console.error("Update failed", error);
+      alert("Failed to update profile");
+    }
+  };
+
+  const openProfileModal = () => {
+    if (user) {
+      setEditUser({
+        full_name: user.full_name,
+        department: user.department || "",
+        year: user.year || ""
+      });
+      setIsProfileModalOpen(true);
     }
   };
 
@@ -208,6 +244,56 @@ export default function StudentDashboard() {
   const pendingCount = activities.filter(a => a.status === 'pending').length;
   const totalCredits = academicRecords.reduce((acc, curr) => acc + curr.credits_earned, 0);
 
+  // Derived state for skills
+  const approvedSkills = Array.from(new Set(
+    activities
+      .filter(a => a.status === 'approved')
+      .flatMap(a => a.skills_gained || [])
+  ));
+
+  const handleGeneratePDF = () => {
+    window.print();
+  };
+
+  const handleShareLink = async () => {
+    // In a real app, this would link to a public profile page
+    // For now, we'll copy a hypothetical URL
+    const publicUrl = `${window.location.origin}/student-profile/${user?.email || 'uid'}`;
+
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      alert(`Public profile link copied: ${publicUrl}`);
+    } catch (err) {
+      console.error('Clipboard API failed: ', err);
+      // Fallback for older browsers or restricted contexts
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = publicUrl;
+
+        // Ensure it's not visible but part of the DOM
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+
+        if (successful) {
+          alert(`Public profile link copied: ${publicUrl}`);
+        } else {
+          throw new Error("execCommand failed");
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed: ', fallbackErr);
+        alert("Failed to copy link to clipboard. Please manually copy: " + publicUrl);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -245,6 +331,13 @@ export default function StudentDashboard() {
             <div className="absolute top-0 right-0 p-4 opacity-10">
               <User className="w-32 h-32" />
             </div>
+            <button
+              onClick={openProfileModal}
+              className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors z-20 group"
+              title="Edit Profile"
+            >
+              <Edit className="w-4 h-4 text-white group-hover:scale-110 transition-transform" />
+            </button>
             <div className="relative z-10">
               <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mb-4 text-3xl font-bold border-2 border-white/50">
                 {user?.full_name.charAt(0)}
@@ -342,20 +435,29 @@ export default function StudentDashboard() {
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wider">Verified Skills</h4>
               <div className="flex flex-wrap gap-2">
-                {/* Inferred skills from activities or hardcoded for demo as requested */}
-                {["Leadership", "Web Development", "Public Speaking", "Data Analysis"].map(skill => (
-                  <span key={skill} className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full text-xs font-medium border border-blue-100 dark:border-blue-800">
-                    {skill}
-                  </span>
-                ))}
+                {approvedSkills.length > 0 ? (
+                  approvedSkills.map(skill => (
+                    <span key={skill} className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full text-xs font-medium border border-blue-100 dark:border-blue-800">
+                      {skill}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400 italic">No verified skills yet.</span>
+                )}
               </div>
             </div>
 
             <div className="space-y-3">
-              <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 font-medium transition flex items-center justify-center gap-2">
+              <button
+                onClick={handleGeneratePDF}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 font-medium transition flex items-center justify-center gap-2"
+              >
                 <FileText className="w-5 h-5" /> Generate PDF Portfolio
               </button>
-              <button className="w-full py-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-medium transition flex items-center justify-center gap-2">
+              <button
+                onClick={handleShareLink}
+                className="w-full py-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-medium transition flex items-center justify-center gap-2"
+              >
                 <Share2 className="w-5 h-5" /> Share Public Link
               </button>
               <p className="text-xs text-center text-gray-400 mt-2">
@@ -517,6 +619,70 @@ export default function StudentDashboard() {
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   Submit Activity
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-700">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+              <h3 className="text-xl font-bold">Edit Profile</h3>
+              <button onClick={() => setIsProfileModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateProfile} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                  value={editUser.full_name}
+                  onChange={e => setEditUser({ ...editUser, full_name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Department</label>
+                <input
+                  type="text"
+                  className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                  value={editUser.department}
+                  onChange={e => setEditUser({ ...editUser, department: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Year</label>
+                <input
+                  type="text"
+                  className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                  value={editUser.year}
+                  onChange={e => setEditUser({ ...editUser, year: e.target.value })}
+                  placeholder="e.g. 3rd Year"
+                />
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsProfileModalOpen(false)}
+                  className="px-4 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

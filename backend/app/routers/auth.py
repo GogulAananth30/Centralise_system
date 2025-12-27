@@ -115,3 +115,24 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @router.get("/me", response_model=UserSchema)
 def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
+
+from ..schemas.user import UserUpdate
+
+@router.put("/profile", response_model=UserSchema)
+def update_profile(
+    profile_update: UserUpdate, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_active_user)
+):
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = profile_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(user, key, value)
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
